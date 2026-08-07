@@ -1,0 +1,35 @@
+# Target output directory
+target/
+*.jar
+*.war
+*.ear
+*.rar
+
+# IDE Configuration
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Logs
+logs/
+*.log
+
+# Environment Files
+.env
+.env.local
+.env.*.local
+
+# File Storage Uploads
+uploads/*
+!uploads/.gitkeep
+uploads/*/*
+!uploads/*/.gitkeep
+
+# System & OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
