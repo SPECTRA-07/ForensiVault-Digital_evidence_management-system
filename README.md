@@ -1,4 +1,4 @@
-# Digital Evidence Management System (DEMS)
+#ForensiVault -  Digital Evidence Management System (DEMS)
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
@@ -6,7 +6,7 @@
 
 ## 📌 Project Overview
 
-The **Digital Evidence Management System (DEMS)** is an enterprise-grade backend application engineered for securely storing, managing, verifying, and tracking digital evidence throughout its legal lifecycle. Designed with clean architecture, high security standards, and scalable modular monolithic principles, DEMS ensures end-to-end evidence integrity, tamper-proof chain of custody, and strict audit compliance.
+The **ForensiVault -Digital Evidence Management System (DEMS)** is an enterprise-grade backend application engineered for securely storing, managing, verifying, and tracking digital evidence throughout its legal lifecycle. Designed with clean architecture, high security standards, and scalable modular monolithic principles, DEMS ensures end-to-end evidence integrity, tamper-proof chain of custody, and strict audit compliance.
 
 ---
 
