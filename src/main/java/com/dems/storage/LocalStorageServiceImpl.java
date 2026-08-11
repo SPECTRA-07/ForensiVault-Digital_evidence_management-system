@@ -4,12 +4,14 @@ import com.dems.config.StorageProperties;
 import com.dems.exception.InternalServerException;
 import com.dems.exception.ResourceNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -22,10 +24,12 @@ import java.util.UUID;
 
 /**
  * Local filesystem implementation of StorageService using Java NIO.
- * Stores evidence files organized by case container in uploads/cases/{caseNumber}/.
+ * Stores evidence files organized by case container in uploads/cases/{caseNumber}/ and QR images under uploads/qr/.
+ * Active when app.storage.provider=local (or missing).
  */
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "app.storage.provider", havingValue = "local", matchIfMissing = true)
 public class LocalStorageServiceImpl implements StorageService {
 
     private final Path rootLocation;
@@ -79,9 +83,37 @@ public class LocalStorageServiceImpl implements StorageService {
     }
 
     @Override
+    public String storeFile(byte[] content, String fileName, String subDir) {
+        if (content == null || content.length == 0) {
+            throw new IllegalArgumentException("Cannot store empty content byte array.");
+        }
+
+        Path targetDir = this.rootLocation.resolve(subDir).normalize();
+        try {
+            Files.createDirectories(targetDir);
+            Path destinationFile = targetDir.resolve(fileName).normalize();
+
+            try (InputStream inputStream = new ByteArrayInputStream(content)) {
+                Files.copy(inputStream, destinationFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            log.info("Content successfully stored at [{}] under subDir [{}]", destinationFile, subDir);
+            return destinationFile.toString();
+
+        } catch (IOException e) {
+            log.error("Failed to store content file [{}] under subDir [{}]", fileName, subDir, e);
+            throw new InternalServerException("Failed to store byte content in local storage.", e);
+        }
+    }
+
+    @Override
     public Resource loadFileAsResource(String storagePath) {
         try {
             Path filePath = Paths.get(storagePath).normalize();
+            if (!filePath.isAbsolute()) {
+                filePath = this.rootLocation.resolve(filePath).normalize();
+            }
+
             Resource resource = new UrlResource(filePath.toUri());
 
             if (resource.exists() && resource.isReadable()) {
@@ -100,6 +132,9 @@ public class LocalStorageServiceImpl implements StorageService {
     public void deleteFile(String storagePath) {
         try {
             Path filePath = Paths.get(storagePath).normalize();
+            if (!filePath.isAbsolute()) {
+                filePath = this.rootLocation.resolve(filePath).normalize();
+            }
             Files.deleteIfExists(filePath);
             log.info("Deleted file at storage path [{}]", storagePath);
         } catch (IOException e) {

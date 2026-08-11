@@ -13,43 +13,42 @@ import com.dems.exception.InternalServerException;
 import com.dems.exception.ResourceNotFoundException;
 import com.dems.integrity.EvidenceIntegrityService;
 import com.dems.integrity.IntegrityVerificationResponse;
+import com.dems.storage.StorageService;
 import com.dems.user.UserEntity;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.UrlResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.ByteArrayOutputStream;
 import java.time.OffsetDateTime;
 
 /**
- * Implementation of QRCodeService handling ZXing QR image generation, local storage under uploads/qr/,
- * metadata resolution, and audit logging.
+ * Implementation of QRCodeService handling ZXing QR image generation, StorageService integration,
+ * metadata resolution, and audit logging. Supports local filesystem and cloud object storage transparently.
  */
 @Slf4j
 @Service
 public class QRCodeServiceImpl implements QRCodeService {
 
-    private static final String QR_DIRECTORY = "uploads/qr";
     private final EvidenceRepository evidenceRepository;
     private final EvidenceIntegrityService integrityService;
     private final AuditService auditService;
+    private final StorageService storageService;
 
     public QRCodeServiceImpl(
             EvidenceRepository evidenceRepository,
             EvidenceIntegrityService integrityService,
-            AuditService auditService) {
+            AuditService auditService,
+            StorageService storageService) {
         this.evidenceRepository = evidenceRepository;
         this.integrityService = integrityService;
         this.auditService = auditService;
+        this.storageService = storageService;
     }
 
     @Override
@@ -58,17 +57,17 @@ public class QRCodeServiceImpl implements QRCodeService {
         validateEvidenceEligibility(evidence);
 
         try {
-            Path qrDir = Paths.get(QR_DIRECTORY);
-            if (!Files.exists(qrDir)) {
-                Files.createDirectories(qrDir);
-            }
-
             String fileName = "QR-" + evidence.getEvidenceNumber() + ".png";
-            Path filePath = qrDir.resolve(fileName);
 
             QRCodeWriter qrCodeWriter = new QRCodeWriter();
             BitMatrix bitMatrix = qrCodeWriter.encode(evidence.getEvidenceNumber(), BarcodeFormat.QR_CODE, 250, 250);
-            MatrixToImageWriter.writeToPath(bitMatrix, "PNG", filePath);
+
+            ByteArrayOutputStream pngOutputStream = new ByteArrayOutputStream();
+            MatrixToImageWriter.writeToStream(bitMatrix, "PNG", pngOutputStream);
+            byte[] pngBytes = pngOutputStream.toByteArray();
+
+            // Store QR image using pluggable StorageService under "qr" subdirectory / prefix
+            String storedPath = storageService.storeFile(pngBytes, fileName, "qr");
 
             OffsetDateTime now = OffsetDateTime.now();
             String downloadUrl = "/qr/evidence/" + evidence.getId() + "/image";
@@ -78,7 +77,7 @@ public class QRCodeServiceImpl implements QRCodeService {
             evidence.setQrGeneratedAt(now);
             evidenceRepository.save(evidence);
 
-            log.info("QR Code Generated: Evidence ID [{}], File [{}]", evidence.getId(), fileName);
+            log.info("QR Code Generated: Evidence ID [{}], Storage Path [{}]", evidence.getId(), storedPath);
 
             auditService.recordEvent(
                     AuditAction.CREATE,
@@ -115,8 +114,7 @@ public class QRCodeServiceImpl implements QRCodeService {
         // Delete existing QR file if present
         if (evidence.getQrFileName() != null) {
             try {
-                Path existingPath = Paths.get(QR_DIRECTORY).resolve(evidence.getQrFileName());
-                Files.deleteIfExists(existingPath);
+                storageService.deleteFile(getQRStorageKey(evidence.getQrFileName()));
             } catch (Exception e) {
                 log.warn("Could not delete previous QR file for Evidence ID [{}]", evidenceId, e);
             }
@@ -138,7 +136,7 @@ public class QRCodeServiceImpl implements QRCodeService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public QRCodeResponse getQRCodeInfo(Long evidenceId) {
         EvidenceEntity evidence = evidenceRepository.findById(evidenceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evidence record not found with ID: " + evidenceId));
@@ -158,7 +156,7 @@ public class QRCodeServiceImpl implements QRCodeService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public Resource getQRCodeImageResource(Long evidenceId) {
         EvidenceEntity evidence = evidenceRepository.findById(evidenceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evidence record not found with ID: " + evidenceId));
@@ -170,19 +168,12 @@ public class QRCodeServiceImpl implements QRCodeService {
         }
 
         try {
-            Path filePath = Paths.get(QR_DIRECTORY).resolve(fileName).normalize();
-            Resource resource = new UrlResource(filePath.toUri());
-            if (resource.exists() && resource.isReadable()) {
-                return resource;
-            } else {
-                // Regenerate and load
-                QRCodeResponse regenerated = generateQRCode(evidence);
-                Path regenPath = Paths.get(QR_DIRECTORY).resolve(regenerated.getQrFileName()).normalize();
-                return new UrlResource(regenPath.toUri());
-            }
+            String storageKey = getQRStorageKey(fileName);
+            return storageService.loadFileAsResource(storageKey);
         } catch (Exception e) {
-            log.error("Failed to load QR image resource for Evidence ID [{}]", evidenceId, e);
-            throw new InternalServerException("Could not stream QR code image file.");
+            log.warn("QR image resource missing for Evidence ID [{}], auto-regenerating...", evidenceId);
+            QRCodeResponse regenerated = generateQRCode(evidence);
+            return storageService.loadFileAsResource(getQRStorageKey(regenerated.getQrFileName()));
         }
     }
 
@@ -228,6 +219,13 @@ public class QRCodeServiceImpl implements QRCodeService {
                 .integrityStatus(integritySnapshot)
                 .qrGeneratedAt(evidence.getQrGeneratedAt())
                 .build();
+    }
+
+    private String getQRStorageKey(String fileName) {
+        if (fileName.contains("/") || fileName.contains("\\")) {
+            return fileName;
+        }
+        return "qr/" + fileName;
     }
 
     private void validateEvidenceEligibility(EvidenceEntity evidence) {

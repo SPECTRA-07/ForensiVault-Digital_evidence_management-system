@@ -41,4 +41,18 @@ class LocalStorageServiceTest {
         assertNotNull(resource);
         assertTrue(resource.exists());
     }
+
+    @Test
+    void storeFile_ByteArray_Success() {
+        byte[] qrBytes = "PNG QR Bytes".getBytes();
+
+        String storagePath = storageService.storeFile(qrBytes, "QR-EVD-100.png", "qr");
+
+        assertNotNull(storagePath);
+        assertTrue(storagePath.contains("qr"));
+
+        Resource resource = storageService.loadFileAsResource(storagePath);
+        assertNotNull(resource);
+        assertTrue(resource.exists());
+    }
 }

@@ -4,6 +4,7 @@ import com.dems.auth.JwtAuthenticationFilter;
 import com.dems.user.UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -13,14 +14,14 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
  * Spring Security 6 Security Filter Chain and Bean Configurations for DEMS.
- * Enforces stateless JWT authentication, password encoding, and role-based authorization.
+ * Enforces stateless JWT authentication, CORS preflight handling, password encoding, and role-based authorization.
  */
 @Configuration
 @EnableWebSecurity
@@ -45,16 +46,21 @@ public class SecurityConfig {
     };
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationProvider authenticationProvider) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            AuthenticationProvider authenticationProvider,
+            CorsConfigurationSource corsConfigurationSource) throws Exception {
+
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_WHITELIST).permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/cases").hasRole("ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/cases/*/assign-officer").hasRole("ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/qr/evidence/*/regenerate").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/cases").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/cases/*/assign-officer").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/qr/evidence/*/regenerate").hasRole("ADMIN")
                         .requestMatchers("/evidence/**").authenticated()
                         .requestMatchers("/custody/**").authenticated()
                         .requestMatchers("/audit/**").authenticated()
@@ -67,7 +73,6 @@ public class SecurityConfig {
 
         return http.build();
     }
-
 
     @Bean
     public AuthenticationProvider authenticationProvider(UserService userService, PasswordEncoder passwordEncoder) {
@@ -82,4 +87,3 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 }
-

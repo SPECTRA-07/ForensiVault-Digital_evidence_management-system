@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+target/
+logs/
+uploads/
+frontend/
+.vscode/
+.idea/
+*.log
+*.pdf
+*.md
+Dockerfile*
+docker-compose*

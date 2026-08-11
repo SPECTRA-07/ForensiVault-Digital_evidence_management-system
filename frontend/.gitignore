@@ -1,0 +1,21 @@
+# Node / Vite build artifacts
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment variables containing local overrides
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / OS files
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea

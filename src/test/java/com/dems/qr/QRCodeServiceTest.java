@@ -37,6 +37,9 @@ class QRCodeServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private com.dems.storage.StorageService storageService;
+
     @InjectMocks
     private QRCodeServiceImpl qrCodeService;
 
@@ -60,6 +63,7 @@ class QRCodeServiceTest {
     @Test
     void generateQRCode_Success() {
         when(evidenceRepository.save(any(EvidenceEntity.class))).thenReturn(evidence);
+        when(storageService.storeFile(any(byte[].class), any(String.class), any(String.class))).thenReturn("qr/QR-EVD-100.png");
 
         QRCodeResponse response = qrCodeService.generateQRCode(evidence);
 

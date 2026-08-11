@@ -1,59 +1,44 @@
 # Digital Evidence Management System (DEMS)
 
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-6.4.3-purple.svg)](https://vitejs.dev/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
+---
 
 ## 📌 Project Overview
 
-The **Digital Evidence Management System (DEMS)** is an enterprise-grade backend application engineered for securely storing, managing, verifying, and tracking digital evidence throughout its legal lifecycle. Designed with clean architecture, high security standards, and scalable modular monolithic principles, DEMS ensures end-to-end evidence integrity, tamper-proof chain of custody, and strict audit compliance.
+The **Digital Evidence Management System (DEMS)** is an enterprise-grade, high-security application engineered for securely storing, managing, verifying, and tracking digital evidence throughout its legal lifecycle. Designed with clean modular monolithic architecture and strict security standards, DEMS ensures end-to-end evidence integrity, tamper-proof chain of custody, QR barcode tracking, and comprehensive audit compliance.
 
 ---
 
-## ⚖️ Business Problem
+## 🏛️ System Architecture
 
-In law enforcement, legal proceedings, and corporate investigations, digital evidence (CCTV footage, audio recordings, forensic disk images, photos, and scanned documents) faces significant risks:
-1. **Chain of Custody Breaches**: Lack of immutable, timestamped tracking of who accessed or transferred evidence.
-2. **Data Tampering & Corruption**: Unauthorized file modifications without automatic cryptographic integrity verification.
-3. **Unstructured File Storage**: Disorganized local or cloud file storage leading to lost evidence or invalid court admissibility.
-4. **Compliance & Audit Failures**: Inability to generate comprehensive, tamper-evident audit logs for legal discovery.
-
-DEMS resolves these challenges by enforcing cryptographic hash verification (SHA-256), automated audit logging, structured role-based access control, and digital chain of custody tracking.
-
----
-
-## 🏗️ Architecture
-
-Version 1 follows a **Modular Monolith Architecture** adhering to **SOLID principles**, **Clean Architecture**, and strict **Separation of Concerns**.
+DEMS is built as a **Modular Monolithic Architecture**:
 
 ```
-[ HTTP Requests / API Clients ]
-              │
-              ▼
-    ┌──────────────────┐
-    │    Controller    │  (REST endpoints & Request Validation)
-    └────────┬─────────┘
-             │
-             ▼
-    ┌──────────────────┐
-    │     Service      │  (Business Logic & Transaction Boundaries)
-    └────────┬─────────┘
-             │
-             ▼
-    ┌──────────────────┐
-    │    Repository    │  (Data Access Layer - Spring Data JPA)
-    └────────┬─────────┘
-             │
-             ▼
-    ┌──────────────────┐
-    │     Database     │  (PostgreSQL Persistence)
-    └──────────────────┘
+                  React 18 + Vite 6 SPA Frontend (Vercel)
+                                    │
+                                    ▼  HTTPS / REST / JWT Bearer
+                  Spring Boot 3.3.5 Monolith Backend (Docker)
+                                    │
+    ┌───────────────────────────────┼───────────────────────────────┐
+    ▼                               ▼                               ▼
+Spring Security 6            PostgreSQL Database             Storage Provider
+(JWT Authentication)       (Metadata & Audit Logs)            Abstraction
+                                                                    │
+                                                     ┌──────────────┴──────────────┐
+                                                     ▼                             ▼
+                                               LocalStorage                 AWS S3 / R2 Object
+                                               (Development)               Storage (Production)
 ```
 
-- **Constructor Injection Only**: No `@Autowired` field injection.
-- **Auditing**: Automated JPA timestamp auditing (`createdAt`, `updatedAt`) via `BaseEntity`.
-- **Global Error Handling**: Standardized error responses using `@RestControllerAdvice`.
-- **Response Wrapper**: Uniform REST API payloads with `ApiResponse<T>`.
+- **Monolithic Core**: Single deployable Spring Boot unit (`digital-evidence-management-system-1.0.0-SNAPSHOT.jar`) encapsulating all business domains.
+- **Relational Database**: PostgreSQL stores cases, evidence metadata, custody transfers, user accounts, and immutable audit logs.
+- **Persistent Object Storage**: Pluggable storage abstraction supporting local disk storage for development and AWS S3 / Cloudflare R2 for production object storage.
+- **SHA-256 Integrity Verification**: Real-time streaming hash recalculation verifying physical files against baseline cryptographic hashes.
 
 ---
 
@@ -61,128 +46,84 @@ Version 1 follows a **Modular Monolith Architecture** adhering to **SOLID princi
 
 | Layer / Concern | Technology |
 | :--- | :--- |
-| **Language** | Java 21 (LTS) |
-| **Framework** | Spring Boot 3.3.x |
-| **Security** | Spring Security 6 |
-| **Build Tool** | Apache Maven |
-| **Database** | PostgreSQL |
-| **ORM / Data Access** | Spring Data JPA (Hibernate) |
-| **Validation** | Spring Boot Starter Validation (Jakarta Validation) |
+| **Frontend Framework** | React 18 SPA + Vite 6.4.3 |
+| **Frontend Styling** | Vanilla CSS Design System with Glassmorphic UI |
+| **Backend Framework** | Spring Boot 3.3.5 (Java 21 LTS) |
+| **Security & Auth** | Spring Security 6 + JJWT 0.12.6 (HMAC-SHA256) |
+| **Database & ORM** | PostgreSQL 15+ & Hibernate ORM |
+| **Object Storage** | AWS SDK for Java 2.x (`software.amazon.awssdk:s3`) |
+| **Barcode Generator** | ZXing 3.5.3 (`core` & `javase`) |
 | **API Documentation** | Springdoc OpenAPI v2.6.0 (Swagger UI) |
-| **Boilerplate Reduction** | Lombok |
-| **Monitoring** | Spring Boot Actuator |
-| **Logging** | SLF4J + Logback |
-| **Testing** | JUnit 5, Mockito, Spring Boot Test, H2 (Test scope) |
+| **Monitoring** | Spring Boot Actuator (`/actuator/health`) |
 
 ---
 
-## 📁 Folder Structure
+## 🛡️ Role-Based Access Control (RBAC) Matrix
 
-```
-com.dems
-│
-├── config                 # Security, Swagger, JPA Auditing & Storage Configurations
-├── common                 # Standardized ApiResponse wrapper
-├── constants              # System-wide static application constants
-├── controller             # REST Controllers (Phase 1+)
-├── dto                    # Data Transfer Objects
-├── entity                 # JPA Entities & MappedSuperclass BaseEntity
-├── enums                  # Business Domain Enums
-├── exception              # Global Exception Handler & Custom Runtime Exceptions
-├── mapper                 # Object Mappers (DTO <-> Entity)
-├── repository             # Spring Data JPA Repositories
-├── security               # Security Filter Chains & Security Beans
-├── service                # Service Interfaces
-│     └── impl             # Service Implementations
-├── storage                # Local File Storage Abstractions & Properties
-├── audit                  # Evidence Audit Trail Engine
-├── custody                # Chain of Custody Management
-├── util                   # Utility Classes & Helper Functions
-├── validation             # Custom Validators & Constraints
-└── DigitalEvidenceManagementApplication.java
-```
+| System Module | `ADMIN` | `FORENSIC_EXPERT` | `POLICE_OFFICER` | `COURT_OFFICIAL` |
+| :--- | :---: | :---: | :---: | :---: |
+| **Executive Dashboard** (`/dashboard`) | ✅ Full Access | ✅ Full Access | ❌ Restricted (403) | ❌ Restricted (403) |
+| **Case Management** (`/cases`) | ✅ Full + Create | 👁️ Read-Only | 👁️ Read-Only | 👁️ Read-Only |
+| **Officer Assignment** (`PATCH /cases/{id}/assign-officer`) | ✅ Admin Only | ❌ Restricted | ❌ Restricted | ❌ Restricted |
+| **Evidence Upload & Management** (`/evidence`) | ✅ Full Access | ✅ Full Access | ✅ Assigned Cases | 👁️ Read-Only |
+| **SHA-256 Integrity Verification** (`/integrity`) | ✅ Full Access | ✅ Full Access | ✅ Verify Permitted | 👁️ Read-Only |
+| **Chain of Custody** (`/custody`) | ✅ Full Access | ✅ Full Access | ✅ Initiate & Accept | 👁️ Read-Only |
+| **Physical QR Barcode Tracking** (`/qr`) | ✅ Full + Regenerate | ✅ View Tag | ✅ View Tag | 👁️ View Tag |
+| **Forensic Audit Logs** (`/audit`) | 👁️ Read-Only | 👁️ Read-Only | 👁️ Read-Only | 👁️ Read-Only |
+| **User Account Management** (`/users`) | ✅ Admin Only | ❌ Restricted (403) | ❌ Restricted (403) | ❌ Restricted (403) |
 
 ---
 
-## 🚀 Getting Started
+## 🔑 Environment Variables Directory
 
-### Prerequisites
-
-- **Java Development Kit (JDK 21+)**
-- **Apache Maven 3.8+**
-- **PostgreSQL 14+**
-
-### Environment Variables
-
-Configure the following environment variables (or rely on defaults provided in `application-dev.yml`):
-
-| Variable | Description | Default (Dev) |
-| :--- | :--- | :--- |
-| `PORT` | Server HTTP Port | `8080` |
-| `SPRING_PROFILES_ACTIVE` | Active Spring Profile | `dev` |
-| `DB_HOST` | PostgreSQL Host | `localhost` |
-| `DB_PORT` | PostgreSQL Port | `5432` |
-| `DB_NAME` | Database Name | `dems_db` |
-| `DB_USERNAME` | Database User | `postgres` |
-| `DB_PASSWORD` | Database Password | `postgres` |
-| `STORAGE_LOCATION` | Local File Upload Root Path | `uploads` |
+| Variable | Purpose | Default (Dev) | Production Example |
+| :--- | :--- | :--- | :--- |
+| `PORT` | HTTP Server Binding Port | `8080` | `8080` |
+| `SPRING_PROFILES_ACTIVE` | Active Spring Profile | `dev` | `prod` |
+| `DB_HOST` | PostgreSQL Hostname | `localhost` | `postgres.your-cloud-provider.com` |
+| `DB_PORT` | PostgreSQL Port | `5432` | `5432` |
+| `DB_NAME` | Database Name | `dems_db` | `dems_db` |
+| `DB_USERNAME` | Database User | `postgres` | `dems_prod_user` |
+| `DB_PASSWORD` | Database Password | `root` | `[SECURE_PROD_PASSWORD]` |
+| `JWT_SECRET` | 256-bit Hex Signing Key | Dev Secret | `[64_HEX_CHAR_SECRET]` |
+| `STORAGE_PROVIDER` | Storage Engine Selection | `local` | `s3` |
+| `STORAGE_BUCKET` | S3 Storage Bucket Name | `dems-evidence` | `dems-evidence-prod` |
+| `STORAGE_REGION` | AWS S3 Region | `us-east-1` | `us-east-1` |
+| `APP_CORS_ALLOWED_ORIGINS` | CORS Allowed Origins | `http://localhost:5173` | `https://dems-frontend.vercel.app` |
 
 ---
 
-## 🏃 Running the Project
+## 🏃 Local Development Quickstart
 
-### 1. Build and Test
-
-Compile the project and run unit tests:
+### 1. Start Backend Monolith
 ```bash
-mvn clean compile
-mvn test
+# Compile and run Spring Boot server (port 8080)
+mvn clean spring-boot:run
 ```
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Health Endpoint: `http://localhost:8080/actuator/health`
 
-### 2. Run Locally (Dev Profile)
-
-Make sure your local PostgreSQL database is running, then execute:
+### 2. Start Frontend SPA
 ```bash
-mvn spring-boot:run
+cd frontend
+npm install
+npm run dev
 ```
-Alternatively, run with explicit profile setting:
+- Frontend Dev Server: `http://localhost:5173`
+
+---
+
+## 🧪 Testing & Build Verification
+
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+# Run 100% backend unit & integration test suite (59 tests)
+mvn clean test
+
+# Build production frontend bundle
+cd frontend && npm run build
+
+# Package executable production Spring Boot JAR
+mvn clean package -DskipTests
 ```
 
----
-
-## 📖 Swagger & Health Documentation
-
-Once the application is running, access the OpenAPI documentation and health endpoints:
-
-- **Swagger UI**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
-- **OpenAPI JSON Specs**: [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
-- **Actuator Health Check**: [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
-
----
-
-## 🎯 Version 1 Scope
-
-- Enterprise production-ready modular monolith foundation.
-- PostgreSQL database integration & JPA auditing.
-- Uniform API response wrapper (`ApiResponse<T>`).
-- Centralized exception framework (`GlobalExceptionHandler`, `ErrorResponse`).
-- Interactive Swagger documentation.
-- Local storage directory structure setup (`uploads/cases/`, `uploads/temp/`, `uploads/qr/`).
-- Actuator health check endpoint.
-
----
-
-## 🔮 Future Roadmap
-
-- **Phase 1**: Authentication & Authorization (JWT, RBAC, User & Role Management).
-- **Phase 2**: Case & Evidence Management (Metadata, Storage, SHA-256 Hashing).
-- **Phase 3**: Chain of Custody, Audit Log Verification, and QR Code generation.
-- **Future Enhancements**: AWS S3 Storage Provider, Redis Caching, Kafka Event Streaming, Dockerization, OCR & AI Evidence Analysis.
-
----
-
-## 📄 License
-
-This project is licensed under the [Apache License 2.0](LICENSE).
+For complete cloud deployment instructions to Vercel and Docker hosts, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
