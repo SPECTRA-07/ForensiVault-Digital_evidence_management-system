@@ -19,7 +19,11 @@ FROM eclipse-temurin:21-jre-alpine AS runner
 WORKDIR /app
 
 # Create non-root system group and user for execution security
-RUN addgroup -S dems && adduser -S dems -G dems
+RUN addgroup -S dems && \
+    adduser -S dems -G dems && \
+    mkdir -p /app/logs && \
+    chown -R dems:dems /app
+
 USER dems:dems
 
 # Copy compiled Spring Boot executable JAR from builder stage
