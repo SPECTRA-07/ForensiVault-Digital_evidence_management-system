@@ -16,6 +16,7 @@ RUN mvn clean package -DskipTests -B
 
 # Stage 2: Minimal Production JRE 21 Execution Container
 FROM eclipse-temurin:21-jre-alpine AS runner
+
 WORKDIR /app
 
 # Create non-root system group and user for execution security
